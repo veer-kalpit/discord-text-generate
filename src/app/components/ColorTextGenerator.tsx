@@ -11,7 +11,6 @@ import {
 
 // Discord ANSI color codes
 const ansiColors: { [key: string]: { fg: string; bg: string; hex: string } } = {
-  black: { fg: "30", bg: "40", hex: "#000000" },
   red: { fg: "31", bg: "41", hex: "#ff0000" },
   green: { fg: "32", bg: "42", hex: "#00ff00" },
   yellow: { fg: "33", bg: "43", hex: "#ffff00" },
@@ -58,30 +57,35 @@ const ColorTextGenerator = () => {
     });
   };
 
-  // Generate Proper ANSI for Discord
-  const generateDiscordText = (): string => {
-    let result = "```ansi\n";
+ const generateDiscordText = (): string => {
+   let result = "```ansi\n";
 
-    letters.forEach(({ text, fg, bg, bold, underline }) => {
-      let ansiCode = "\x1b[";
+   letters.forEach(({ text, fg, bg, bold, underline }) => {
+     let ansiCode = "\x1b[";
 
-      if (bold) ansiCode += "1;";
-      if (underline) ansiCode += "4;";
-      if (fg) ansiCode += ansiColors[fg].fg + ";";
-      if (bg) ansiCode += ansiColors[bg].bg + ";";
+     if (bold) ansiCode += "1;";
+     if (underline) ansiCode += "4;";
+     ansiCode += (fg ? ansiColors[fg].fg : "37") + ";"; // Default to white if fg is undefined
+     if (bg) ansiCode += ansiColors[bg].bg + ";";
 
-      // Remove trailing semicolon & close bracket
-      ansiCode = ansiCode.replace(/;$/, "") + "m";
+     ansiCode = ansiCode.replace(/;$/, "") + "m"; // Remove trailing semicolon
 
-      result += ansiCode + text + "\x1b[0m"; // Reset after each letter
-    });
+     result += ansiCode + text + "\x1b[0m";
+   });
 
-    result += "\n```"; // End ANSI block
-    return result;
-  };
+   result += "\n```";
+   return result;
+ };
+
 
   return (
-    <Paper shadow="xs" p="md" mt="md" radius="md">
+    <Paper
+      shadow="xs"
+      p="md"
+      mt="md"
+      radius="md"
+      style={{ backgroundColor: "#c4c4c4", color: "#000000" }}
+    >
       <Textarea
         label="Enter your text"
         placeholder="Type here..."
@@ -90,7 +94,6 @@ const ColorTextGenerator = () => {
         minRows={3}
       />
 
-      {/* Foreground Colors */}
       <Box mt="md">
         <Title order={5}>Text Color</Title>
         <Group gap="xs">
@@ -114,7 +117,6 @@ const ColorTextGenerator = () => {
         </Group>
       </Box>
 
-      {/* Background Colors */}
       <Box mt="md">
         <Title order={5}>Background Color</Title>
         <Group gap="xs">
@@ -160,14 +162,13 @@ const ColorTextGenerator = () => {
         </Button>
       </Group>
 
-      {/* Live Preview (Uses CSS, Not ANSI) */}
       <Paper
         mt="md"
         p="xs"
         radius="md"
         style={{
           minHeight: "80px",
-          background: "#222",
+          background: "#7c7c7c",
           color: "#fff",
           padding: "8px",
         }}
@@ -186,6 +187,8 @@ const ColorTextGenerator = () => {
               cursor: "pointer",
               padding: letter.bg ? "2px 4px" : "0",
               borderRadius: "4px",
+              fontSize: "24px",
+              letterSpacing: "2px",
             }}
           >
             {letter.text}
@@ -193,7 +196,6 @@ const ColorTextGenerator = () => {
         ))}
       </Paper>
 
-      {/* Copy Button */}
       <Group mt="md">
         <Button
           leftSection={<IconCopy />}
