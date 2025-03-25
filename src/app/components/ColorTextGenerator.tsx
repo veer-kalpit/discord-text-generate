@@ -9,24 +9,19 @@ import {
   IconEraser,
 } from "@tabler/icons-react";
 
-const colors = [
-  "#4f545c",
-  "#dc322f",
-  "#859900",
-  "#b58900",
-  "#268bd2",
-  "#d33682",
-  "#2aa198",
-  "#ffffff",
-  "#002b36",
-  "#cb4b16",
-  "#586e75",
-  "#657b83",
-  "#839496",
-  "#6c71c4",
-  "#93a1a1",
-  "#fdf6e3",
-];
+// Discord ANSI color codes
+const ansiColors: { [key: string]: { fg: string; bg: string; hex: string } } = {
+  black: { fg: "30", bg: "40", hex: "#000000" },
+  red: { fg: "31", bg: "41", hex: "#ff0000" },
+  green: { fg: "32", bg: "42", hex: "#00ff00" },
+  yellow: { fg: "33", bg: "43", hex: "#ffff00" },
+  blue: { fg: "34", bg: "44", hex: "#0000ff" },
+  magenta: { fg: "35", bg: "45", hex: "#ff00ff" },
+  cyan: { fg: "36", bg: "46", hex: "#00ffff" },
+  white: { fg: "37", bg: "47", hex: "#ffffff" },
+};
+
+const colorOptions = Object.keys(ansiColors);
 
 interface LetterStyle {
   text: string;
@@ -40,108 +35,53 @@ const ColorTextGenerator = () => {
   const [letters, setLetters] = useState<LetterStyle[]>([]);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [inputText, setInputText] = useState("");
-  const [defaultFg, setDefaultFg] = useState<string | undefined>();
-  const [defaultBg, setDefaultBg] = useState<string | undefined>();
 
-  // Convert Hex to RGB
-  const rgbFromHex = (hex: string): [number, number, number] => {
-    const bigint = parseInt(hex.slice(1), 16);
-    return [(bigint >> 16) & 255, (bigint >> 8) & 255, bigint & 255];
-  };
-
-  // Update letters as user types
-  const updateLetters = (text: string): void => {
+  const updateLetters = (text: string) => {
     setInputText(text);
     setLetters(
       text.split("").map((char, index) => ({
         text: char,
-        fg: letters[index]?.fg || defaultFg,
-        bg: letters[index]?.bg || defaultBg,
+        fg: letters[index]?.fg,
+        bg: letters[index]?.bg,
         bold: letters[index]?.bold,
         underline: letters[index]?.underline,
       }))
     );
   };
 
-  // Apply formatting to the selected letter
-  const updateSelectedLetter = (update: Partial<LetterStyle>): void => {
+  const updateSelectedLetter = (update: Partial<LetterStyle>) => {
     if (selectedIndex === null) return;
-    setLetters((prevLetters) => {
-      const updatedLetters = [...prevLetters];
-      updatedLetters[selectedIndex] = {
-        ...updatedLetters[selectedIndex],
-        ...update,
-      };
-      return updatedLetters;
+    setLetters((prev) => {
+      const updated = [...prev];
+      updated[selectedIndex] = { ...updated[selectedIndex], ...update };
+      return updated;
     });
   };
 
-  // Apply only color to selected letter
-  const updateSelectedLetterColor = (
-    color: string,
-    isForeground: boolean
-  ): void => {
-    if (selectedIndex !== null) {
-      setLetters((prevLetters) => {
-        const updatedLetters = [...prevLetters];
-        updatedLetters[selectedIndex] = {
-          ...updatedLetters[selectedIndex],
-          ...(isForeground ? { fg: color } : { bg: color }),
-        };
-        return updatedLetters;
-      });
-    } else {
-      if (isForeground) setDefaultFg(color);
-      else setDefaultBg(color);
-    }
-  };
-
-  // Reset everything
-  const resetAll = (): void => {
-    setLetters([]);
-    setInputText("");
-    setSelectedIndex(null);
-    setDefaultFg(undefined);
-    setDefaultBg(undefined);
-  };
-
-  // Generate Discord-formatted text with ANSI colors
+  // Generate Proper ANSI for Discord
   const generateDiscordText = (): string => {
     let result = "```ansi\n";
-    let prevFg: string | null = null;
-    let prevBg: string | null = null;
 
     letters.forEach(({ text, fg, bg, bold, underline }) => {
-      let ansiCode = "";
+      let ansiCode = "\x1b[";
 
-      // Apply foreground color if changed
-      if (fg && fg !== prevFg) {
-        const [r, g, b] = rgbFromHex(fg);
-        ansiCode += `\x1b[38;2;${r};${g};${b}m`;
-        prevFg = fg;
-      }
+      if (bold) ansiCode += "1;";
+      if (underline) ansiCode += "4;";
+      if (fg) ansiCode += ansiColors[fg].fg + ";";
+      if (bg) ansiCode += ansiColors[bg].bg + ";";
 
-      // Apply background color if changed
-      if (bg && bg !== prevBg) {
-        const [r, g, b] = rgbFromHex(bg);
-        ansiCode += `\x1b[48;2;${r};${g};${b}m`;
-        prevBg = bg;
-      }
+      // Remove trailing semicolon & close bracket
+      ansiCode = ansiCode.replace(/;$/, "") + "m";
 
-      // Apply bold and underline
-      if (bold) ansiCode += "\x1b[1m";
-      if (underline) ansiCode += "\x1b[4m";
-
-      result += ansiCode + text;
+      result += ansiCode + text + "\x1b[0m"; // Reset after each letter
     });
 
-    result += "\x1b[0m\n```"; // Reset at the end
+    result += "\n```"; // End ANSI block
     return result;
   };
 
   return (
     <Paper shadow="xs" p="md" mt="md" radius="md">
-      {/* Text Input */}
       <Textarea
         label="Enter your text"
         placeholder="Type here..."
@@ -150,49 +90,54 @@ const ColorTextGenerator = () => {
         minRows={3}
       />
 
-      {/* Foreground Color Selection */}
+      {/* Foreground Colors */}
       <Box mt="md">
-        <Title order={5}>Foreground Color</Title>
+        <Title order={5}>Text Color</Title>
         <Group gap="xs">
-          {colors.map((color) => (
+          {colorOptions.map((color) => (
             <Box
               key={color}
               style={{
                 width: "24px",
                 height: "24px",
-                backgroundColor: color,
+                backgroundColor: ansiColors[color].hex,
                 cursor: "pointer",
                 borderRadius: "4px",
-                border: defaultFg === color ? "2px solid #fff" : "none",
+                border:
+                  letters[selectedIndex || 0]?.fg === color
+                    ? "2px solid #fff"
+                    : "none",
               }}
-              onClick={() => updateSelectedLetterColor(color, true)}
+              onClick={() => updateSelectedLetter({ fg: color })}
             />
           ))}
         </Group>
       </Box>
 
-      {/* Background Color Selection */}
-      <Box mt="sm">
+      {/* Background Colors */}
+      <Box mt="md">
         <Title order={5}>Background Color</Title>
         <Group gap="xs">
-          {colors.map((color) => (
+          {colorOptions.map((color) => (
             <Box
               key={color}
               style={{
                 width: "24px",
                 height: "24px",
-                backgroundColor: color,
+                backgroundColor: ansiColors[color].hex,
                 cursor: "pointer",
                 borderRadius: "4px",
-                border: defaultBg === color ? "2px solid #fff" : "none",
+                border:
+                  letters[selectedIndex || 0]?.bg === color
+                    ? "2px solid #fff"
+                    : "none",
               }}
-              onClick={() => updateSelectedLetterColor(color, false)}
+              onClick={() => updateSelectedLetter({ bg: color })}
             />
           ))}
         </Group>
       </Box>
 
-      {/* Formatting Options */}
       <Group mt="md">
         <Button
           onClick={() => updateSelectedLetter({ bold: true })}
@@ -208,32 +153,39 @@ const ColorTextGenerator = () => {
         </Button>
         <Button
           color="red"
-          onClick={resetAll}
+          onClick={() => setLetters([])}
           leftSection={<IconEraser size={16} />}
         >
           Reset
         </Button>
       </Group>
 
-      {/* Live Preview */}
+      {/* Live Preview (Uses CSS, Not ANSI) */}
       <Paper
         mt="md"
         p="xs"
         radius="md"
-        style={{ minHeight: "80px", color: "#fff", background: "#333" }}
+        style={{
+          minHeight: "80px",
+          background: "#222",
+          color: "#fff",
+          padding: "8px",
+        }}
       >
         {letters.map((letter, index) => (
           <span
             key={index}
             onClick={() => setSelectedIndex(index)}
             style={{
-              color: letter.fg || "inherit",
-              backgroundColor: letter.bg || "transparent",
+              color: letter.fg ? ansiColors[letter.fg].hex : "inherit",
+              backgroundColor: letter.bg
+                ? ansiColors[letter.bg].hex
+                : "transparent",
               fontWeight: letter.bold ? "bold" : "normal",
               textDecoration: letter.underline ? "underline" : "none",
+              cursor: "pointer",
               padding: letter.bg ? "2px 4px" : "0",
               borderRadius: "4px",
-              cursor: "pointer",
             }}
           >
             {letter.text}
